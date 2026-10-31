@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  VoiceUploadsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [PUT, POST, GET]
+            AllowedOrigins: ['*'] # Allows requests from localhost:3000
+            MaxAge: 3000
+
+  PresignedUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.lambda_handler
+      Runtime: python3.13
+      Timeout: 10
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref VoiceUploadsBucket
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref VoiceUploadsBucket
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            Path: /get-presigned-url
+            Method: GET
+            ApiId: !Ref VoiceHttpApi
+
+  VoiceHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: ['*']
+        AllowMethods: [GET, OPTIONS]
+        AllowHeaders: ['*']
+
+Outputs:
+  ApiEndpoint:
+    Description: "Copy this URL into your Next.js frontend"
+    Value: !Sub "https://${VoiceHttpApi}.execute-api.${AWS::Region}.amazonaws.com/get-presigned-url"
