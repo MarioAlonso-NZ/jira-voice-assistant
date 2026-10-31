@@ -1,0 +1,9 @@
+# Next.js Frontend
+jira-voice-ui/node_modules/
+jira-voice-ui/.next/
+jira-voice-ui/.env.local
+
+# Python Backend
+backend/venv/
+backend/__pycache__/
+backend/*.zip
