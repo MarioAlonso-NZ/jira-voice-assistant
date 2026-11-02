@@ -11,15 +11,21 @@ export default function JiraRecorder() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [isSent, setIsSent] = useState(false);
+  const [workspace, setWorkspace] = useState<"demo" | "vantpos">("demo");
+
+  const [ticketUrl, setTicketUrl] = useState<string | null>(null);
 
   const discardAudio = () => {
     setAudioUrl(null);
     setAudioBlob(null);
     setIsSent(false);
+    setTicketUrl(null);
   };
 
   const startRecording = async () => {
     try {
+      setIsSent(false);
+      setTicketUrl(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -75,7 +81,9 @@ export default function JiraRecorder() {
       if (!uploadResponse.ok) throw new Error("Failed to upload audio to S3");
 
       // 3. Trigger Processor Lambda synchronously
-      const processorUrl = "https://g3ns52m1lc.execute-api.us-east-2.amazonaws.com/default/jira-voice-processor";
+      const processorUrl = workspace === "demo"
+        ? "https://g3ns52m1lc.execute-api.us-east-2.amazonaws.com/default/jira-voice-processor-demo"
+        : "https://g3ns52m1lc.execute-api.us-east-2.amazonaws.com/default/jira-voice-processor";
 
       const s3Key = data.fileName || data.key || data.uploadURL.split('?')[0].split('/').pop();
 
@@ -88,7 +96,8 @@ export default function JiraRecorder() {
       const result = await lambdaResponse.json();
 
       if (lambdaResponse.ok) {
-        setIsSent(true); // Lock the UI on success
+        setIsSent(true);
+        setTicketUrl(result.jira_url);
         toast.success(
           <div>
             Audio pushed to Jira! <br />
@@ -114,13 +123,32 @@ export default function JiraRecorder() {
       <Toaster position="top-center" reverseOrder={false} />
       <h2 className="text-2xl font-bold mb-4 text-center">Jira Voice Assistant</h2>
 
+      <div className="flex justify-center gap-4 mb-8 bg-slate-900 p-1 rounded-lg w-full max-w-xs mx-auto">
+        <button
+          onClick={() => setWorkspace("demo")}
+          disabled={isProcessing}
+          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${workspace === "demo" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-slate-200"
+            }`}
+        >
+          Demo Space
+        </button>
+        <button
+          onClick={() => setWorkspace("vantpos")}
+          disabled={isProcessing}
+          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${workspace === "vantpos" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-slate-200"
+            }`}
+        >
+          Vantpos Team
+        </button>
+      </div>
+
       <div className="flex flex-col items-center gap-6">
         <button
           onClick={isRecording ? stopRecording : startRecording}
           disabled={isProcessing}
           className={`w-32 h-32 rounded-full flex items-center justify-center text-xl font-bold transition-all disabled:opacity-50 ${isRecording
-              ? "bg-red-500 hover:bg-red-600 animate-pulse"
-              : "bg-blue-600 hover:bg-blue-700"
+            ? "bg-red-500 hover:bg-red-600 animate-pulse"
+            : "bg-blue-600 hover:bg-blue-700"
             }`}
         >
           {isRecording ? "Stop" : "Record"}
@@ -148,8 +176,8 @@ export default function JiraRecorder() {
               onClick={uploadToJira}
               disabled={isProcessing || isSent}
               className={`w-full py-3 rounded-lg font-semibold flex items-center justify-center transition-all ${isSent
-                  ? "bg-slate-700 text-slate-400 cursor-not-allowed"
-                  : "bg-green-600 hover:bg-green-500 text-white shadow-lg hover:shadow-green-900/50"
+                ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-500 text-white shadow-lg hover:shadow-green-900/50"
                 }`}
             >
               {isProcessing ? (
@@ -166,6 +194,56 @@ export default function JiraRecorder() {
                 "Push to Jira"
               )}
             </button>
+          </div>
+        )}
+
+        {ticketUrl && (
+          <div className="w-full mt-6 p-4 bg-slate-900 border border-slate-700 rounded-xl animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-lg">
+            <h3 className="text-sm font-semibold text-slate-300 mb-3 text-center">Ticket Created Successfully!</h3>
+
+            <a
+              href={ticketUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center w-full py-2 mb-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-sm"
+            >
+              Open in Jira Board
+              <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+            </a>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <hr className="w-full border-slate-700" />
+                <span className="px-3 text-xs text-slate-500 whitespace-nowrap">Guest Login</span>
+                <hr className="w-full border-slate-700" />
+              </div>
+
+              <div className="flex items-center justify-between bg-slate-800 p-2.5 rounded-lg border border-slate-700 group">
+                <span className="text-sm text-slate-300 font-mono truncate">marioal.nezzvla@gmail.com</span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText("marioal.nezzvla@gmail.com");
+                    toast.success("Email copied!");
+                  }}
+                  className="ml-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-md text-xs font-medium text-white transition-all active:scale-95 opacity-80 group-hover:opacity-100"
+                >
+                  Copy
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between bg-slate-800 p-2.5 rounded-lg border border-slate-700 group">
+                <span className="text-sm text-slate-300 font-mono">TestPassword</span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText("TestPassword"); // Change to your actual guest password
+                    toast.success("Password copied!");
+                  }}
+                  className="ml-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-md text-xs font-medium text-white transition-all active:scale-95 opacity-80 group-hover:opacity-100"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
