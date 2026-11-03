@@ -235,7 +235,7 @@ export default function JiraRecorder() {
                 <span className="text-sm text-slate-300 font-mono">TestPassword</span>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText("TestPassword"); // Change to your actual guest password
+                    navigator.clipboard.writeText("TestPassword");
                     toast.success("Password copied!");
                   }}
                   className="ml-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-md text-xs font-medium text-white transition-all active:scale-95 opacity-80 group-hover:opacity-100"
